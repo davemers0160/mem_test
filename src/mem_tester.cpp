@@ -11,7 +11,7 @@ typedef void* HINSTANCE;
 #endif
 
 // C/C++ includes
-//#include <stdint.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -21,13 +21,7 @@ typedef void* HINSTANCE;
 #include <chrono>
 #include <string>
 #include <vector>
-// #include <array>
-// #include <algorithm>
-// #include <type_traits>
-// #include <list>
 #include <thread>
-// #include <complex>
-// #include <mutex>
 #include <random>
 
 #if defined(_WIN32) | defined(__WIN32__) | defined(__WIN32) | defined(_WIN64) | defined(__WIN64)
@@ -53,7 +47,7 @@ typedef void* HINSTANCE;
 // ----------------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
-    uint32_t idx;
+    uint32_t idx, jdx;
     int bp = 0;
 
     typedef std::chrono::microseconds us;
@@ -63,24 +57,32 @@ int main(int argc, char** argv)
 
     //----------------------------------------------------------------------------------------
     // variables    
-    int64_t mem_data[4] = {0};
-    int64_t dummy_value = 0xFFFFFFFF;
+//    int64_t mem_data[4096] = { 0 };
+    int64_t dummy_value = 0xFFFFFFFFFFFFFFFF;
 
-    std::vector<int16_t> frame_preamble = {1,0,1,0,1,0,1,0};
+    uint32_t buffer_size = 256;
+    int32_t alignment_size = 16;
 
-    std::vector<int16_t> frame_data = {0, 1,1,0,1,0,0,1,1,1,1,0,0,1,0,0,0,1};
+    int64_t *mem_data = (int64_t *)_aligned_malloc(16 * buffer_size * sizeof(int64_t), alignment_size);
+    int64_t *mem_address;
+
+    std::vector<int16_t> frame_preamble = {1, 0, 1, 0, 1, 0, 1, 0};
+
+    std::vector<int16_t> frame_data = {0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 0 ,0 ,0 ,0, 1, 0, 0, 1, 1};
 
     std::vector<int16_t> frame_bits = frame_preamble;
     frame_bits.insert(frame_bits.end(), frame_data.begin(), frame_data.end());
 
     // bit time
-    std::chrono::microseconds bit_time(5000);
+    std::chrono::microseconds bit_time(10000);
 
     while(1)
     {
+        
         for (idx = 0; idx < frame_bits.size(); ++idx)
         {
-
+            mem_address = mem_data;
+            
             if(frame_bits[idx] == 1)
             {
                 start_time = std::chrono::high_resolution_clock::now();
@@ -88,7 +90,12 @@ int main(int argc, char** argv)
                 
                 while (std::chrono::duration_cast<us>(stop_time - start_time) < bit_time)
                 {
-                    _mm_stream_si64x(mem_data, dummy_value);
+                    mem_address = mem_data; 
+                    for (jdx = 0; jdx < buffer_size; ++jdx)
+                    {
+                        _mm_stream_si64x(mem_address, dummy_value);
+                        mem_address += alignment_size;
+                    }
                     stop_time = std::chrono::high_resolution_clock::now();
                 }
 
@@ -104,7 +111,13 @@ int main(int argc, char** argv)
 
                 while (std::chrono::duration_cast<us>(stop_time - start_time) < bit_time)
                 {
-                    _mm_stream_si64x(mem_data, dummy_value);
+                    mem_address = mem_data;
+                    for (jdx = 0; jdx < buffer_size; ++jdx)
+                    {
+                        _mm_stream_si64x(mem_address, dummy_value);
+                        mem_address += alignment_size;
+                    }
+
                     stop_time = std::chrono::high_resolution_clock::now();
                 }
             }
